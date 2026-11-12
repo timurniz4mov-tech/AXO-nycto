@@ -17,10 +17,26 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Download Forge MDK
+        run: |
+          curl -fL -o mdk.zip https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-mdk.zip
+          mkdir mdk-work
+          unzip -q mdk.zip -d mdk-work
+
+      - name: Install mod sources into MDK
+        run: |
+          MDK=$(dirname "$(find mdk-work -name gradlew | head -1)")
+          HE=$(find . -name HollowEcho.java -not -path './mdk-work/*' | head -1)
+          SRC=${HE%/main/java/*}
+          echo "MDK=$MDK" >> $GITHUB_ENV
+          echo "Mod sources: $SRC"
+          rm -rf "$MDK/src/main/java/com/example"
+          rm -f "$MDK/src/main/resources/META-INF/mods.toml"
+          cp -r "$SRC/." "$MDK/src/"
+          sed -i 's/^mod_id=.*/mod_id=hollowecho/' "$MDK/gradle.properties"
 
       - name: Build
+        working-directory: ${{ env.MDK }}
         run: |
           chmod +x gradlew
           ./gradlew build
@@ -29,4 +45,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hollowecho-jar
-          path: build/libs/*.jar
+          path: ${{ env.MDK }}/build/libs/*.jar
